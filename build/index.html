@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>canvastest</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      #container {
+        width: 350px;
+        height: 200px;
+        position: relative;
+      }
+
+      #container canvas {
+        background-color: transparent;
+        position: absolute;
+        /* top: 0;
+        left: 0; */
+        border: 1px solid #eee;
+      }
+
+      .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 350px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div id="container"></div>
+    </div>
+    <h1 id="tit"></h1>
+    <script src="touch-emulator.js"></script>
+    <script>
+      TouchEmulator();
+    </script>
+    <script src="assets/runtime.js"></script>
+    <script src="assets/vendor.js"></script>
+    <script src="assets/app.js"></script>
+  </body>
+</html>

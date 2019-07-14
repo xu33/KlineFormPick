@@ -42,7 +42,7 @@ const KlineChart = (element, options) => {
   const context = canvas.getContext('2d');
 
   let startIndex = 0;
-  let endIndex = 40;
+  let endIndex = 30;
 
   let indexScale = d3
     .scaleLinear()
@@ -57,59 +57,6 @@ const KlineChart = (element, options) => {
   };
 
   let priceHeightScale = d3.scaleLinear().range([mainBound.height, 0]);
-
-  // const handleZoom = () => {
-  //   let transform = d3.event.transform;
-  //   let currentIndexScale = transform.rescaleX(indexScale);
-
-  //   let domain = currentIndexScale.domain();
-
-  //   let start = domain[0] >> 0;
-  //   let end = domain[1] >> 0;
-
-  //   if (start < 0) start = 0;
-  //   if (end > data.length - 1) end = data.length - 1;
-
-  //   if (startIndex != start || endIndex != end) {
-  //     // 重绘
-  //     renderSticks();
-  //   }
-
-  //   // console.log(startIndex, endIndex);
-  //   // console.log('zoomed');
-  //   // console.log('zoom:', startIndex, endIndex);
-  //   startIndex = start;
-  //   endIndex = end;
-  // };
-
-  // const handleZoomEnd = () => {};
-
-  // const initZoom = () => {
-  //   let k = data.length / (endIndex - startIndex);
-
-  //   // console.log('scale:', k);
-
-  //   if (k < 1) {
-  //     k = 1;
-  //   }
-
-  //   let tx = 0;
-  //   let ty = 0;
-  //   let transform = d3.zoomIdentity.scale(k).translate(tx, ty);
-  //   let zoom = d3
-  //     .zoom()
-  //     .translateExtent([[0, 0], [width, 0]])
-  //     .scaleExtent([20, k])
-  //     .touchable(function() {
-  //       return true;
-  //     })
-  //     .on('zoom', handleZoom)
-  //     .on('end', handleZoomEnd);
-
-  //   d3.select(element)
-  //     .call(zoom)
-  //     .call(zoom.transform, transform);
-  // };
 
   const drawRect = (x, y, width, height, fill = true) => {
     x = parseInt(x) + 0.5;
@@ -244,9 +191,11 @@ const KlineChart = (element, options) => {
 
     mc.get('pinch').set({ enable: true });
 
-    let MAX_SCALE = data.length / (endIndex - startIndex);
+    let MAX_SCALE = 80; // data.length / (endIndex - startIndex);
     let MIN_SCALE = 1; //MAX_SCALE / 3;
-    let k = MAX_SCALE;
+    let k = data.length / (endIndex - startIndex);
+
+    console.log(k);
 
     if (k < 1) {
       k = 1;
@@ -329,7 +278,7 @@ const KlineChart = (element, options) => {
       //   .scale(eScale)
       //   .translate((loc.x * (1 - eScale)) / transform.k);
 
-      transform = extentTransform(eScale, (transform.x + loc.x) * (1 - eScale));
+      transform = extentTransform(eScale, loc.x * (1 - eScale));
       // h1.innerHTML = transform.toString();
 
       let currentIndexScale = transform.rescaleX(indexScale);
@@ -351,9 +300,17 @@ const KlineChart = (element, options) => {
     var mouse = {};
     var zoom = inout => {
       var loc = windowToCanvas(canvas, mouse.x, mouse.y);
-      var eScale = inout ? 1.1 : 0.9;
+      var eScale = inout ? 1.05 : 1 / 1.05;
+      var plusScale = eScale - 1;
+      var prevTransform = transform;
+      // transform = extentTransform(eScale, loc.x * (1 - eScale));
 
-      transform = extentTransform(eScale, loc.x * (1 - eScale));
+      transform.k = transform.k * eScale;
+      var tx = (loc.x - prevTransform.x) * plusScale;
+
+      console.log(loc.x, tx, prevTransform, transform);
+      transform.x += -tx;
+      console.log(transform);
 
       let currentIndexScale = transform.rescaleX(indexScale);
       let domain = currentIndexScale.domain();

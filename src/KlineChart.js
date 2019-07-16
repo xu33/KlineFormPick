@@ -2,7 +2,7 @@
 import * as d3Scale from 'd3-scale';
 import * as d3Zoom from 'd3-zoom';
 import Hammer from 'hammerjs';
-import { windowToCanvas } from './utils';
+import { windowToCanvas, highDPIConvert } from './utils';
 import RangeSelector from './RangeSelecter';
 
 const RED = '#F54646';
@@ -25,21 +25,12 @@ const KlineChart = (element, options) => {
   //   }
   // );
 
-  const devicePixelRatio = 1; //window.devicePixelRatio;
-  // console.log(devicePixelRatio);
+  let devicePixelRatio = window.devicePixelRatio;
   let { data } = options;
-  // data = data.slice(0, 500);
   let { width, height, left, top } = element.getBoundingClientRect();
-  width = width * devicePixelRatio;
-  height = height * devicePixelRatio;
 
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  canvas.style.width = width / devicePixelRatio + 'px';
-  canvas.style.height = height / devicePixelRatio + 'px';
-
-  const context = canvas.getContext('2d');
+  const context = highDPIConvert(canvas, width, height);
 
   let startIndex = 0;
   let endIndex = 30;
@@ -109,10 +100,10 @@ const KlineChart = (element, options) => {
   // 价格轴
   const renderLeftAxis = () => {
     let priceDomain = priceHeightScale.domain();
-    for (var i = 0; i < priceDomain.length; i++) {
-      var x = 0;
-      var y = priceHeightScale.range()[i];
-      var text = priceDomain[i].toFixed(2);
+    for (let i = 0; i < priceDomain.length; i++) {
+      let x = 0;
+      let y = priceHeightScale.range()[i];
+      let text = priceDomain[i].toFixed(2);
       if (i == 0) {
         context.textBaseline = 'bottom';
       } else if (i == 1) {
@@ -183,7 +174,7 @@ const KlineChart = (element, options) => {
   };
 
   const initZoomHammer = () => {
-    var mc = new Hammer.Manager(element, {});
+    let mc = new Hammer.Manager(element, {});
     mc.add(
       new Hammer.Pan({ direction: Hammer.DIRECTION_HORIZONTAL, threshold: 2 })
     );
@@ -191,11 +182,9 @@ const KlineChart = (element, options) => {
 
     mc.get('pinch').set({ enable: true });
 
-    let MAX_SCALE = 80; // data.length / (endIndex - startIndex);
-    let MIN_SCALE = 1; //MAX_SCALE / 3;
+    let MAX_SCALE = data.length / 20;
+    let MIN_SCALE = data.length / 90;
     let k = data.length / (endIndex - startIndex);
-
-    console.log(k);
 
     if (k < 1) {
       k = 1;
@@ -204,17 +193,16 @@ const KlineChart = (element, options) => {
     let tx = 0;
     let ty = 0;
     let transform = d3.zoomIdentity.scale(k).translate(tx, ty);
-    console.log(transform.rescaleX(indexScale).domain());
 
-    var prevTransform = transform;
+    let prevTransform = transform;
 
     mc.on('panstart', function(ev) {
       prevTransform = transform;
     });
 
     mc.on('pan', function(ev) {
-      var tx = (ev.deltaX / transform.k).toFixed(2);
-      var ty = 0;
+      let tx = (ev.deltaX / transform.k).toFixed(2);
+      let ty = 0;
 
       transform = prevTransform.translate(tx, ty);
 
@@ -234,9 +222,9 @@ const KlineChart = (element, options) => {
       if (start < 0) start = 0;
       if (end > data.length - 1) end = data.length - 1;
 
-      if (end - start > 40) {
-        console.log(start, end, domain);
-      }
+      // if (end - start > 40) {
+      //   console.log(start, end, domain);
+      // }
 
       if (startIndex != start || endIndex != end) {
         startIndex = start;
@@ -245,41 +233,31 @@ const KlineChart = (element, options) => {
       }
     });
 
-    var extentTransform = function(scale, tx) {
-      var nextTransform = prevTransform.scale(scale);
-      if (nextTransform.k > MAX_SCALE) {
-        nextTransform.k = MAX_SCALE;
-      } else if (nextTransform.k < MIN_SCALE) {
-        nextTransform.k = MIN_SCALE;
-      } else {
-        nextTransform = nextTransform.translate(tx / nextTransform.k, 0);
-        if (nextTransform.x > 0) {
-          nextTransform.x = 0;
-        }
-
-        if (nextTransform.x < -(width * nextTransform.k - width)) {
-          nextTransform.x = -(width * nextTransform.k - width);
-        }
-      }
-
-      return nextTransform;
-    };
-
+    let lastScale = 1;
     mc.on('pinchstart', function(e) {
-      console.log('pinchstart fired');
-      prevTransform = transform;
+      lastScale = 1;
     });
 
+    let h1 = document.getElementById('tit');
+
     mc.on('pinch', function(e) {
-      var loc = windowToCanvas(canvas, e.center.x, e.center.y);
-      var eScale = e.scale;
+      let loc = windowToCanvas(canvas, e.center.x, e.center.y);
+      h1.innerHTML = e.scale;
+      let eScale = e.scale > lastScale ? 1.05 : 1 / 1.05;
 
-      // transform = prevTransform
-      //   .scale(eScale)
-      //   .translate((loc.x * (1 - eScale)) / transform.k);
+      let plusScale = eScale - 1;
 
-      transform = extentTransform(eScale, loc.x * (1 - eScale));
-      // h1.innerHTML = transform.toString();
+      let nextScale = transform.k * eScale;
+      if (nextScale > MAX_SCALE) {
+        nextScale = MAX_SCALE;
+      } else if (nextScale < MIN_SCALE) {
+        nextScale = MIN_SCALE;
+      } else {
+        let tx = (loc.x - transform.x) * plusScale;
+        transform.x += -tx;
+      }
+
+      transform.k = nextScale;
 
       let currentIndexScale = transform.rescaleX(indexScale);
       let domain = currentIndexScale.domain();
@@ -294,22 +272,36 @@ const KlineChart = (element, options) => {
         endIndex = end;
         renderSticks();
       }
+
+      // prevTransform = transform;
+
+      lastScale = e.scale;
+    });
+
+    mc.on('pinchend', function(e) {
+      h1.innerHTML = transform;
     });
 
     // 测试用
-    var mouse = {};
-    var zoom = inout => {
-      var loc = windowToCanvas(canvas, mouse.x, mouse.y);
-      var eScale = inout ? 1.05 : 1 / 1.05;
-      var plusScale = eScale - 1;
-      var prevTransform = transform;
-      // transform = extentTransform(eScale, loc.x * (1 - eScale));
+    let mouse = {};
+    let zoom = inout => {
+      let loc = windowToCanvas(canvas, mouse.x, mouse.y);
+      let eScale = inout ? 1.05 : 1 / 1.05;
 
-      transform.k = transform.k * eScale;
-      var tx = (loc.x - prevTransform.x) * plusScale;
+      let plusScale = eScale - 1;
 
-      console.log(loc.x, tx, prevTransform, transform);
-      transform.x += -tx;
+      let nextScale = transform.k * eScale;
+      if (nextScale > MAX_SCALE) {
+        nextScale = MAX_SCALE;
+      } else if (nextScale < MIN_SCALE) {
+        nextScale = MIN_SCALE;
+      } else {
+        let tx = (loc.x - transform.x) * plusScale;
+        transform.x += -tx;
+      }
+
+      transform.k = nextScale;
+
       console.log(transform);
 
       let currentIndexScale = transform.rescaleX(indexScale);
@@ -317,20 +309,27 @@ const KlineChart = (element, options) => {
       let start = parseInt(domain[0]);
       let end = parseInt(domain[1]);
 
-      if (start < 0) start = 0;
-      if (end > data.length - 1) end = data.length - 1;
+      console.log(start, end);
+
+      if (start < 0) {
+        end += 0 - start;
+        start = 0;
+      }
+
+      if (end > data.length - 1) {
+        start += end - data.length + 1;
+        end = data.length - 1;
+      }
 
       if (startIndex != start || endIndex != end) {
         startIndex = start;
         endIndex = end;
         renderSticks();
       }
-
-      prevTransform = transform;
     };
 
     document.addEventListener('keypress', function(e) {
-      var keyCode = e.keyCode;
+      let keyCode = e.keyCode;
       if (keyCode == 119) {
         zoom(true);
       } else if (keyCode == 115) {
@@ -353,13 +352,14 @@ const KlineChart = (element, options) => {
       // 绘制
       renderSticks();
 
-      // 绑定缩放事件// initZoom();
-      var mc = initZoomHammer();
-      // var h1 = document.getElementById('tit');
-      var rs = new RangeSelector({
+      // 绑定缩放事件
+      let mc = initZoomHammer();
+
+      let rs = new RangeSelector({
         container: element,
         width: width,
         height: height,
+        scale: scale,
         onSelect: function() {
           mc.stop();
         }

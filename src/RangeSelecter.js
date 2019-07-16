@@ -1,8 +1,8 @@
-import { windowToCanvas } from './utils';
+import { windowToCanvas, highDPIConvert } from './utils';
 
 const STROKE_COLOR = '#FE841D';
 const FILL_COLOR = 'rgba(254,132,29,0.20)';
-const MIN_WIDTH = 40;
+// const MIN_WIDTH = 40;
 
 function drawCircle({ context, x, y, radius, fillStyle, withShadow = false }) {
   context.beginPath();
@@ -60,17 +60,23 @@ class CircleSprite {
 }
 
 class RangeSelecter {
-  constructor({ container, width, height, onSelect, onChange }) {
+  constructor({ container, width, height, scale, onSelect, onChange }) {
     this.container = container;
     this.canvas = document.createElement('canvas');
+    // this.context = highDPIConvert(this.canvas, width, height);
+    this.context = this.canvas.getContext('2d');
     this.canvas.width = width;
     this.canvas.height = height;
     this.canvasWidth = width;
     this.canvasHeight = height;
-    this.context = this.canvas.getContext('2d');
-    this.x1 = 100;
-    this.x2 = 150;
-    this.height = height;
+
+    this.scale = scale;
+
+    console.log('step:', this.scale.step());
+    var step = this.scale.step();
+
+    this.x1 = width - step * 5;
+    this.x2 = width;
     this.outerRadius = 15;
     this.innerRadius = 9;
     this.container.appendChild(this.canvas);
@@ -79,114 +85,133 @@ class RangeSelecter {
 
     this.circles = new Array(2);
     this.initCircles();
-    this.addEvents();
+    this.initEventHandlers();
   }
 
-  addEvents() {
-    var container = this.container;
+  handleTouchStart = e => {
     var canvas = this.canvas;
     var context = this.context;
+    if (e.touches.length > 1) {
+      return;
+    }
+
+    var touch = e.touches[0];
+    var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
+
+    for (var i = 0; i < this.circles.length; i++) {
+      var o = this.circles[i];
+      context.beginPath();
+      context.arc(o.x, o.y, o.outerRadius, 0, Math.PI * 2, 1);
+
+      // console.log(o.x, o.y, o.outerRadius, 0, Math.PI * 2, loc.x, loc.y);
+
+      if (context.isPointInPath(loc.x, loc.y)) {
+        this.activeSprite = o;
+        this.activeIndex = i;
+        this.touchstart = loc;
+        break;
+      }
+
+      context.closePath();
+    }
+
+    console.log('activeSprite:', this.activeSprite);
+
+    if (this.activeSprite != null) {
+      this.onSelect();
+    }
+  };
+
+  handleTouchMove = e => {
+    if (!this.activeSprite) {
+      return;
+    }
+
+    var canvas = this.canvas;
     var circles = this.circles;
-    var activeSprite = null;
-    var activeIndex = -1;
-    var touchstart = null;
+    var touchstart = this.touchstart;
+    var activeSprite = this.activeSprite;
+    var activeIndex = this.activeIndex;
+    var MIN_WIDTH = this.MIN_WIDTH;
+    var touch = e.touches[0];
+    var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
+    var dx = loc.x - touchstart.x;
+    var leftSide, rightSide;
+    if (activeIndex === 0) {
+      leftSide = activeSprite;
+      rightSide = circles[1];
+    } else {
+      leftSide = circles[0];
+      rightSide = activeSprite;
+    }
+    var step = this.scale.step();
+    var stepCount = dx / step;
+
+    if (Math.abs(stepCount) < 1) {
+      return;
+    }
+
+    var cacheX = activeSprite.x;
+    var deltaX = Math.floor(stepCount) * step;
+    activeSprite.update(activeSprite.lastX + deltaX);
+
+    var widthBetween = rightSide.x - leftSide.x;
+    if (widthBetween < MIN_WIDTH) {
+      activeSprite.update(cacheX);
+
+      if (activeSprite == leftSide) {
+        leftSide.update(activeSprite.lastX + deltaX);
+        rightSide.update(leftSide.x + MIN_WIDTH);
+      } else {
+        rightSide.update(activeSprite.lastX + deltaX);
+        leftSide.update(rightSide.x - MIN_WIDTH);
+      }
+
+      this.render();
+    } else {
+      this.render();
+    }
+  };
+
+  handleTouchEnd() {
+    if (!this.activeSprite) {
+      return;
+    }
+
+    this.circles.forEach(c => c.updateLast());
+    this.activeSprite = null;
+    this.activeIndex = -1;
+    this.touchstart = null;
+  }
+
+  initEventHandlers() {
+    var container = this.container;
     var captureOption = {
       capture: true
     };
 
+    this.activeSprite = null;
+    this.activeIndex = -1;
+    this.touchstart = null;
+    this.MIN_WIDTH = this.scale.step() * 5;
+
     container.addEventListener(
       'touchstart',
-      e => {
-        if (e.touches.length > 1) {
-          return;
-        }
-
-        var touch = e.touches[0];
-        var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
-
-        for (var i = 0; i < circles.length; i++) {
-          var o = circles[i];
-          context.beginPath();
-          context.arc(o.x, o.y, o.outerRadius, 0, Math.PI * 2, 1);
-
-          if (context.isPointInPath(loc.x, loc.y)) {
-            activeSprite = circles[i];
-            activeIndex = i;
-            touchstart = loc;
-            break;
-          }
-
-          context.closePath();
-        }
-
-        if (activeSprite != null) {
-          this.onSelect();
-        }
-      },
+      this.handleTouchStart,
       captureOption
     );
 
     container.addEventListener(
       'touchmove',
-      e => {
-        if (!activeSprite) {
-          return;
-        }
-
-        var touch = e.touches[0];
-        var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
-        var dx = loc.x - touchstart.x;
-        var leftSide, rightSide;
-        if (activeIndex === 0) {
-          leftSide = activeSprite;
-          rightSide = circles[1];
-        } else {
-          leftSide = circles[0];
-          rightSide = activeSprite;
-        }
-
-        var cacheX = activeSprite.x;
-
-        activeSprite.update(activeSprite.lastX + dx);
-
-        var widthBetween = rightSide.x - leftSide.x;
-        if (widthBetween < MIN_WIDTH) {
-          activeSprite.update(cacheX);
-
-          if (activeSprite == leftSide) {
-            leftSide.update(activeSprite.lastX + dx);
-            rightSide.update(leftSide.x + MIN_WIDTH);
-          } else {
-            rightSide.update(activeSprite.lastX + dx);
-            leftSide.update(rightSide.x - MIN_WIDTH);
-          }
-
-          this.render();
-        } else {
-          this.render();
-        }
-      },
+      this.handleTouchMove,
       captureOption
     );
 
-    container.addEventListener(
-      'touchend',
-      e => {
-        if (!activeSprite) {
-          return;
-        }
-
-        circles.forEach(c => c.updateLast());
-        activeSprite = null;
-        activeIndex = -1;
-        touchstart = null;
-      },
-      captureOption
-    );
+    container.addEventListener('touchend', this.handleTouchEnd, captureOption);
   }
 
   initCircles() {
-    var y = this.height / 2 - this.outerRadius;
+    var y = this.canvasHeight / 2 - this.outerRadius;
     var c1 = new CircleSprite(this.x1, y);
     var c2 = new CircleSprite(this.x2, y);
     this.circles[0] = c1;
@@ -206,7 +231,7 @@ class RangeSelecter {
     const context = this.context;
     const width = x2 - x1;
     context.save();
-    context.rect(x1 + 0.5, -2 + 0.5, width, this.height + 2);
+    context.rect(x1 + 0.5, -2 + 0.5, width, this.canvasHeight + 2);
 
     context.fillStyle = FILL_COLOR;
     context.strokeStyle = STROKE_COLOR;

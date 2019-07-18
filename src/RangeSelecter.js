@@ -96,6 +96,8 @@ class RangeSelecter {
       return;
     }
 
+    this.MIN_WIDTH = this.scale.step() * 5;
+
     var touch = e.touches[0];
     var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
 
@@ -144,6 +146,7 @@ class RangeSelecter {
       rightSide = activeSprite;
     }
     var step = this.scale.step();
+    console.log('step:', step);
     var stepCount = dx / step;
 
     if (Math.abs(stepCount) < 1) {
@@ -204,7 +207,6 @@ class RangeSelecter {
     this.activeSprite = null;
     this.activeIndex = -1;
     this.touchstart = null;
-    this.MIN_WIDTH = this.scale.step() * 5;
 
     container.addEventListener(
       'touchstart',

@@ -244,7 +244,6 @@ const KlineChart = (element, options) => {
       let loc = windowToCanvas(canvas, e.center.x, e.center.y);
       h1.innerHTML = e.scale;
       let eScale = e.scale > lastScale ? 1.05 : 1 / 1.05;
-
       let plusScale = eScale - 1;
 
       let nextScale = transform.k * eScale;
@@ -287,7 +286,6 @@ const KlineChart = (element, options) => {
     let zoom = inout => {
       let loc = windowToCanvas(canvas, mouse.x, mouse.y);
       let eScale = inout ? 1.05 : 1 / 1.05;
-
       let plusScale = eScale - 1;
 
       let nextScale = transform.k * eScale;
@@ -302,14 +300,14 @@ const KlineChart = (element, options) => {
 
       transform.k = nextScale;
 
-      console.log(transform);
+      // console.log(transform);
 
       let currentIndexScale = transform.rescaleX(indexScale);
       let domain = currentIndexScale.domain();
       let start = parseInt(domain[0]);
       let end = parseInt(domain[1]);
 
-      console.log(start, end);
+      // console.log(start, end);
 
       if (start < 0) {
         end += 0 - start;
@@ -328,6 +326,7 @@ const KlineChart = (element, options) => {
       }
     };
 
+    // 测试用
     document.addEventListener('keypress', function(e) {
       let keyCode = e.keyCode;
       if (keyCode == 119) {
@@ -337,6 +336,7 @@ const KlineChart = (element, options) => {
       }
     });
 
+    // 测试用
     document.addEventListener('touchstart', function(e) {
       mouse.x = e.touches[0].pageX;
       mouse.y = e.touches[0].pageY;

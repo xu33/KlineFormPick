@@ -34,6 +34,7 @@ class CircleSprite {
   }
 
   updateLast() {
+    console.log(this.x, this.lastX);
     this.lastX = this.x;
   }
 
@@ -115,8 +116,6 @@ class RangeSelecter {
       context.closePath();
     }
 
-    console.log('activeSprite:', this.activeSprite);
-
     if (this.activeSprite != null) {
       this.onSelect();
     }
@@ -153,6 +152,7 @@ class RangeSelecter {
 
     var cacheX = activeSprite.x;
     var deltaX = Math.floor(stepCount) * step;
+    // console.log('activeSprite.lastX:', activeSprite.lastX);
     activeSprite.update(activeSprite.lastX + deltaX);
 
     var widthBetween = rightSide.x - leftSide.x;
@@ -167,13 +167,24 @@ class RangeSelecter {
         leftSide.update(rightSide.x - MIN_WIDTH);
       }
 
-      this.render();
+      if (leftSide.x < 0) {
+        leftSide.update(0);
+        rightSide.update(leftSide.x + MIN_WIDTH);
+      }
+
+      if (rightSide.x > this.canvasWidth) {
+        rightSide.update(this.canvasWidth);
+        leftSide.update(rightSide.x - MIN_WIDTH);
+      }
     } else {
-      this.render();
+      if (leftSide.x < 0) leftSide.update(0);
+      if (rightSide.x > this.canvasWidth) rightSide.update(this.canvasWidth);
     }
+
+    this.render();
   };
 
-  handleTouchEnd() {
+  handleTouchEnd = () => {
     if (!this.activeSprite) {
       return;
     }
@@ -182,7 +193,7 @@ class RangeSelecter {
     this.activeSprite = null;
     this.activeIndex = -1;
     this.touchstart = null;
-  }
+  };
 
   initEventHandlers() {
     var container = this.container;
@@ -244,8 +255,6 @@ class RangeSelecter {
     this.x1 = x1;
     this.x2 = x2;
   }
-
-  update() {}
 
   render() {
     this.context.clearRect(0, 0, this.canvasWidth, this.canvasHeight);

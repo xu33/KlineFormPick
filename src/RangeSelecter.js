@@ -17,16 +17,25 @@ function drawCircle({ context, x, y, radius, fillStyle, withShadow = false }) {
   context.fillStyle = fillStyle;
   context.fill();
   context.restore();
+  context.closePath();
 }
 
+// const CirclePainter = {
+//   paint: function(sprite, context) {
+//     context.beginPath();
+//     context.arc(sprite.x, sprite.y, sprite.radius);
+//   }
+// };
+
 class CircleSprite {
-  constructor(x, y) {
+  constructor(x, y, context) {
     this.x = x;
     this.y = y;
     this.lastX = x;
     this.lastY = y;
     this.outerRadius = 15;
     this.innerRadius = 9;
+    this.context = context;
   }
 
   update(x) {
@@ -106,8 +115,6 @@ class RangeSelecter {
       context.beginPath();
       context.arc(o.x, o.y, o.outerRadius, 0, Math.PI * 2, 1);
 
-      // console.log(o.x, o.y, o.outerRadius, 0, Math.PI * 2, loc.x, loc.y);
-
       if (context.isPointInPath(loc.x, loc.y)) {
         this.activeSprite = o;
         this.activeIndex = i;
@@ -146,7 +153,7 @@ class RangeSelecter {
       rightSide = activeSprite;
     }
     var step = this.scale.step();
-    console.log('step:', step);
+
     var stepCount = dx / step;
 
     if (Math.abs(stepCount) < 1) {
@@ -154,8 +161,8 @@ class RangeSelecter {
     }
 
     var cacheX = activeSprite.x;
-    var deltaX = Math.floor(stepCount) * step;
-    // console.log('activeSprite.lastX:', activeSprite.lastX);
+    var count = stepCount > 0 ? Math.floor(stepCount) : Math.ceil(stepCount);
+    var deltaX = count * step;
     activeSprite.update(activeSprite.lastX + deltaX);
 
     var widthBetween = rightSide.x - leftSide.x;
@@ -233,6 +240,7 @@ class RangeSelecter {
 
   renderPickers() {
     var context = this.context;
+    console.log(this.circles.length);
     this.circles.forEach(function(c) {
       c.render(context);
     });
@@ -243,6 +251,7 @@ class RangeSelecter {
     const x2 = this.circles[1].x;
     const context = this.context;
     const width = x2 - x1;
+    context.beginPath();
     context.save();
     context.rect(x1 + 0.5, -2 + 0.5, width, this.canvasHeight + 2);
 
@@ -259,6 +268,7 @@ class RangeSelecter {
   }
 
   render() {
+    console.log('render fired');
     this.context.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     this.renderRect();
     this.renderPickers();

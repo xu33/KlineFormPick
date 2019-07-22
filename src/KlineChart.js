@@ -4,6 +4,7 @@ import * as d3Zoom from 'd3-zoom';
 import Hammer from 'hammerjs';
 import { windowToCanvas, highDPIConvert } from './utils';
 import RangeSelector from './RangeSelecter';
+import CandleStick, { CandleStickPainter } from './CandleStick';
 
 const RED = '#F54646';
 const GREEN = '#27B666';
@@ -14,31 +15,37 @@ const BLUE = '#07d';
 const d3 = Object.assign({}, d3Scale, d3Zoom);
 
 const KlineChart = (element, options) => {
-  // 在上层阻止d3 zoom内部的事件传递
-  // element.addEventListener(
-  //   'touchmove',
-  //   function(e) {
-  //     e.stopPropagation();
-  //   },
-  //   {
-  //     capture: true
-  //   }
-  // );
-
-  let devicePixelRatio = window.devicePixelRatio;
   let { data } = options;
-  let { width, height, left, top } = element.getBoundingClientRect();
+  let { width, height } = element.getBoundingClientRect();
 
-  const canvas = document.createElement('canvas');
-  const context = highDPIConvert(canvas, width, height);
+  let canvas = document.createElement('canvas');
+  let context = highDPIConvert(canvas, width, height);
 
-  let startIndex = 0;
-  let endIndex = 30;
+  let cs = new CandleStick(CandleStickPainter, context);
+  let TOTAL = data.length;
+  const MIN_COUNT = 30;
+  const MAX_COUNT = 100;
+
+  let MAX_SCALE = TOTAL / MIN_COUNT;
+  let MIN_SCALE = TOTAL / MAX_COUNT;
+  let k = MAX_SCALE;
+
+  if (k < 1) {
+    k = 1;
+  }
+
+  let tx = -width * k + width;
+  let transform = d3.zoomIdentity.translate(tx, 0).scale(k);
 
   let indexScale = d3
     .scaleLinear()
-    .domain([0, data.length])
+    .domain([0, TOTAL])
     .range([0, width]);
+
+  let currentScale = transform.rescaleX(indexScale);
+  let [startIndex, endIndex] = currentScale.domain();
+
+  console.log(startIndex, endIndex);
 
   const mainBound = {
     top: 0,
@@ -48,37 +55,6 @@ const KlineChart = (element, options) => {
   };
 
   let priceHeightScale = d3.scaleLinear().range([mainBound.height, 0]);
-
-  const drawRect = (x, y, width, height, fill = true) => {
-    x = parseInt(x) + 0.5;
-    y = parseInt(y) + 0.5;
-    width = parseInt(width);
-    height = parseInt(height);
-
-    // console.log(x, y, width, height);
-
-    // if (width <= 3) {
-    //   return;
-    // }
-
-    context.rect(x, y, width, height);
-    context.fill();
-    context.stroke();
-  };
-
-  const drawLine = (x1, y1, x2, y2) => {
-    x1 = parseInt(x1) + 0.5;
-    y1 = parseInt(y1) + 0.5;
-    x2 = parseInt(x2) + 0.5;
-    y2 = parseInt(y2) + 0.5;
-
-    context.beginPath();
-    context.moveTo(x1, y1);
-    context.lineTo(x2, y2);
-
-    context.stroke();
-    context.closePath();
-  };
 
   const computePriceHeightScale = () => {
     let part = data.slice(startIndex, endIndex);
@@ -110,6 +86,7 @@ const KlineChart = (element, options) => {
         context.textBaseline = 'top';
       }
       context.textAlign = 'left';
+      context.font = '12px Arial';
       context.fillText(text, x, y);
     }
   };
@@ -150,24 +127,40 @@ const KlineChart = (element, options) => {
         fill = false;
       }
 
+      cs.update({
+        x: x,
+        y: y,
+        width: width,
+        height: height
+      });
+
       context.fillStyle = color;
       context.strokeStyle = color;
 
       let x = parseInt(scale(i));
-      let x1 = x + rectWidth / 2;
-      let x2 = x1;
 
       let y1 = priceHeightScale(fHigh);
       let y2 = priceHeightScale(fLow);
 
-      drawLine(x1, y1, x2, y2);
+      // drawLine(x1, y1, x2, y2);
 
       // 蜡烛
       let y = priceHeightScale(Math.max(fOpen, fClose));
       let width = rectWidth;
       let height = Math.abs(priceHeightScale(fOpen) - priceHeightScale(fClose));
 
-      drawRect(x, y, width, height, fill);
+      cs.update({
+        x: x,
+        y: y,
+        yHigh: y1,
+        yLow: y2,
+        width: width,
+        height: height,
+        color: color
+      });
+      cs.paint();
+
+      // drawRect(x, y, width, height, fill);
 
       context.restore();
     }
@@ -181,18 +174,6 @@ const KlineChart = (element, options) => {
     mc.add(new Hammer.Pinch({ threshold: 0, pointers: 0 }));
 
     mc.get('pinch').set({ enable: true });
-
-    let MAX_SCALE = data.length / 20;
-    let MIN_SCALE = data.length / 90;
-    let k = data.length / (endIndex - startIndex);
-
-    if (k < 1) {
-      k = 1;
-    }
-
-    let tx = 0;
-    let ty = 0;
-    let transform = d3.zoomIdentity.scale(k).translate(tx, ty);
 
     let prevTransform = transform;
 
@@ -220,11 +201,7 @@ const KlineChart = (element, options) => {
       let end = Math.round(domain[1]);
 
       if (start < 0) start = 0;
-      if (end > data.length - 1) end = data.length - 1;
-
-      // if (end - start > 40) {
-      //   console.log(start, end, domain);
-      // }
+      if (end > data.length) end = data.length;
 
       if (startIndex != start || endIndex != end) {
         startIndex = start;

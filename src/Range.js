@@ -29,4 +29,9 @@ var Range = {
 };
 
 console.log(scale(95), scale(100));
-console.log(scale.invert(285), scale.invert(300));
+console.log(scale.invert(282), scale.invert(290));
+
+startIndex = 0;
+endIndex = 5;
+
+scaleBand(startIndex) + bandwidth * (endIndex - startIndex);

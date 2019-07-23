@@ -1,6 +1,7 @@
 // import * as d3 from 'd3';
 import * as d3Scale from 'd3-scale';
 import * as d3Zoom from 'd3-zoom';
+import $ from 'jquery';
 import Hammer from 'hammerjs';
 import { windowToCanvas, highDPIConvert } from './utils';
 import RangeSelector from './RangeSelecter';
@@ -178,10 +179,19 @@ const KlineChart = (element, options) => {
     let prevTransform = transform;
 
     mc.on('panstart', function(ev) {
+      console.log('panstart fired, mc.disable:', mc.disable);
+      if (mc.disable) {
+        return;
+      }
       prevTransform = transform;
     });
 
     mc.on('pan', function(ev) {
+      console.log('paning fired');
+      if (mc.disable) {
+        return;
+      }
+
       let tx = (ev.deltaX / transform.k).toFixed(2);
       let ty = 0;
 
@@ -210,53 +220,53 @@ const KlineChart = (element, options) => {
       }
     });
 
-    let lastScale = 1;
-    mc.on('pinchstart', function(e) {
-      lastScale = 1;
-    });
+    // let lastScale = 1;
+    // mc.on('pinchstart', function(e) {
+    //   lastScale = 1;
+    // });
 
-    let h1 = document.getElementById('tit');
+    // let h1 = document.getElementById('tit');
 
-    mc.on('pinch', function(e) {
-      let loc = windowToCanvas(canvas, e.center.x, e.center.y);
-      h1.innerHTML = e.scale;
-      let eScale = e.scale > lastScale ? 1.05 : 1 / 1.05;
-      let plusScale = eScale - 1;
+    // mc.on('pinch', function(e) {
+    //   let loc = windowToCanvas(canvas, e.center.x, e.center.y);
+    //   h1.innerHTML = e.scale;
+    //   let eScale = e.scale > lastScale ? 1.05 : 1 / 1.05;
+    //   let plusScale = eScale - 1;
 
-      let nextScale = transform.k * eScale;
-      if (nextScale > MAX_SCALE) {
-        nextScale = MAX_SCALE;
-      } else if (nextScale < MIN_SCALE) {
-        nextScale = MIN_SCALE;
-      } else {
-        let tx = (loc.x - transform.x) * plusScale;
-        transform.x += -tx;
-      }
+    //   let nextScale = transform.k * eScale;
+    //   if (nextScale > MAX_SCALE) {
+    //     nextScale = MAX_SCALE;
+    //   } else if (nextScale < MIN_SCALE) {
+    //     nextScale = MIN_SCALE;
+    //   } else {
+    //     let tx = (loc.x - transform.x) * plusScale;
+    //     transform.x += -tx;
+    //   }
 
-      transform.k = nextScale;
+    //   transform.k = nextScale;
 
-      let currentIndexScale = transform.rescaleX(indexScale);
-      let domain = currentIndexScale.domain();
-      let start = parseInt(domain[0]);
-      let end = parseInt(domain[1]);
+    //   let currentIndexScale = transform.rescaleX(indexScale);
+    //   let domain = currentIndexScale.domain();
+    //   let start = parseInt(domain[0]);
+    //   let end = parseInt(domain[1]);
 
-      if (start < 0) start = 0;
-      if (end > data.length - 1) end = data.length - 1;
+    //   if (start < 0) start = 0;
+    //   if (end > data.length - 1) end = data.length - 1;
 
-      if (startIndex != start || endIndex != end) {
-        startIndex = start;
-        endIndex = end;
-        renderSticks();
-      }
+    //   if (startIndex != start || endIndex != end) {
+    //     startIndex = start;
+    //     endIndex = end;
+    //     renderSticks();
+    //   }
 
-      // prevTransform = transform;
+    //   // prevTransform = transform;
 
-      lastScale = e.scale;
-    });
+    //   lastScale = e.scale;
+    // });
 
-    mc.on('pinchend', function(e) {
-      h1.innerHTML = transform;
-    });
+    // mc.on('pinchend', function(e) {
+    //   h1.innerHTML = transform;
+    // });
 
     // 测试用
     let mouse = {};
@@ -337,8 +347,31 @@ const KlineChart = (element, options) => {
         width: width,
         height: height,
         scale: scale,
+        onReady: function(t, range) {
+          $('.rangedisplay').css({
+            left: range[0],
+            width: range[1] - range[0]
+          });
+
+          $('.rangedisplay .txt').html(`${count}周期`);
+        },
         onSelect: function() {
-          mc.stop();
+          mc.disable = true;
+        },
+        onChange: function(t, range) {
+          let width = range[1] - range[0];
+          let step = scale.step();
+          let count = Math.round(width / step);
+
+          $('.rangedisplay').css({
+            left: range[0],
+            width: range[1] - range[0]
+          });
+
+          $('.rangedisplay .txt').html(`${count}周期`);
+        },
+        onSelectEnd: function() {
+          setTimeout(() => (mc.disable = false), 0);
         }
       });
       rs.render();

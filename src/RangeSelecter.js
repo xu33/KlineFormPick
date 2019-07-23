@@ -33,8 +33,8 @@ class CircleSprite {
     this.y = y;
     this.lastX = x;
     this.lastY = y;
-    this.outerRadius = 15;
-    this.innerRadius = 9;
+    this.outerRadius = 10;
+    this.innerRadius = 6;
     this.context = context;
   }
 
@@ -70,7 +70,15 @@ class CircleSprite {
 }
 
 class RangeSelecter {
-  constructor({ container, width, height, scale, onSelect, onChange }) {
+  constructor({
+    container,
+    width,
+    height,
+    scale,
+    onSelect,
+    onSelectEnd,
+    onChange
+  }) {
     this.container = container;
     this.canvas = document.createElement('canvas');
     // this.context = highDPIConvert(this.canvas, width, height);
@@ -81,8 +89,6 @@ class RangeSelecter {
     this.canvasHeight = height;
 
     this.scale = scale;
-
-    console.log('step:', this.scale.step());
     var step = this.scale.step();
 
     this.x1 = width - step * 5;
@@ -91,6 +97,7 @@ class RangeSelecter {
     this.innerRadius = 9;
     this.container.appendChild(this.canvas);
     this.onSelect = onSelect || function() {};
+    this.onSelectEnd = onSelectEnd || function() {};
     this.onChange = onChange || function() {};
 
     this.circles = new Array(2);
@@ -104,8 +111,9 @@ class RangeSelecter {
     if (e.touches.length > 1) {
       return;
     }
-
-    this.MIN_WIDTH = this.scale.step() * 5;
+    var step = this.scale.step();
+    this.MIN_WIDTH = step * 5;
+    this.MAX_WIDTH = step * 20;
 
     var touch = e.touches[0];
     var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
@@ -113,7 +121,13 @@ class RangeSelecter {
     for (var i = 0; i < this.circles.length; i++) {
       var o = this.circles[i];
       context.beginPath();
-      context.arc(o.x, o.y, o.outerRadius, 0, Math.PI * 2, 1);
+      // context.arc(o.x, o.y, o.outerRadius, 0, Math.PI * 2, 1);
+
+      let x = o.x - o.outerRadius;
+      let y = 0;
+      let width = 2 * o.outerRadius;
+      let height = this.canvasHeight;
+      context.rect(x, y, width, height);
 
       if (context.isPointInPath(loc.x, loc.y)) {
         this.activeSprite = o;
@@ -141,6 +155,7 @@ class RangeSelecter {
     var activeSprite = this.activeSprite;
     var activeIndex = this.activeIndex;
     var MIN_WIDTH = this.MIN_WIDTH;
+    var MAX_WIDTH = this.MAX_WIDTH;
     var touch = e.touches[0];
     var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
     var dx = loc.x - touchstart.x;
@@ -166,6 +181,17 @@ class RangeSelecter {
     activeSprite.update(activeSprite.lastX + deltaX);
 
     var widthBetween = rightSide.x - leftSide.x;
+
+    // 最大范围
+    if (widthBetween > MAX_WIDTH) {
+      if (activeSprite == leftSide) {
+        leftSide.update(rightSide.x - MAX_WIDTH);
+      } else {
+        rightSide.update(leftSide.x + MAX_WIDTH);
+      }
+    }
+
+    // 最小范围
     if (widthBetween < MIN_WIDTH) {
       activeSprite.update(cacheX);
 
@@ -203,6 +229,8 @@ class RangeSelecter {
     this.activeSprite = null;
     this.activeIndex = -1;
     this.touchstart = null;
+
+    this.onSelectEnd();
   };
 
   initEventHandlers() {
@@ -272,6 +300,8 @@ class RangeSelecter {
     this.context.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     this.renderRect();
     this.renderPickers();
+
+    this.onChange(this, [this.x1, this.x2]);
   }
 }
 

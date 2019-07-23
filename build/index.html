@@ -11,6 +11,7 @@
       * {
         margin: 0;
         padding: 0;
+        -webkit-text-size-adjust: none;
       }
       #container {
         width: 350px;
@@ -32,13 +33,43 @@
         justify-content: center;
         height: 350px;
       }
+      .rangedisplay {
+        position: absolute;
+        left: 0;
+        top: -14px;
+        width: 100px;
+        height: 14px;
+        display: flex;
+        border-left: 1px solid #fe841d;
+        border-right: 1px solid #fe841d;
+        align-items: center;
+      }
+
+      .line {
+        flex: 1;
+        height: 1px;
+        background: #fe841d;
+      }
+      .txt {
+        flex: 2;
+        font-size: 10px;
+        color: #fe841d;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
-      <div id="container"></div>
+      <div id="container">
+        <div class="rangedisplay">
+          <div class="line"></div>
+          <div class="txt">5周期</div>
+          <div class="line"></div>
+        </div>
+      </div>
     </div>
     <h1 id="tit"></h1>
+
     <script src="touch-emulator.js"></script>
     <script>
       // TouchEmulator();

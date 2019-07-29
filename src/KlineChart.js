@@ -1,10 +1,11 @@
 // import * as d3 from 'd3';
 import * as d3Scale from 'd3-scale';
 import * as d3Zoom from 'd3-zoom';
-import $ from 'jquery';
+import * as d3Array from 'd3-array';
 import Hammer from 'hammerjs';
-import { windowToCanvas, highDPIConvert } from './utils';
-import RangeSelector from './RangeSelecter';
+import { highDPIConvert } from './utils';
+// import RangeSelector from './RangeSelecter';
+import RangeSelectorDOM from './RangeSelectorDOM';
 import CandleStick, { CandleStickPainter } from './CandleStick';
 
 const RED = '#F54646';
@@ -13,9 +14,16 @@ const EQUAL = '#999999';
 const GRID_COLOR = '#eee';
 const BLUE = '#07d';
 
-const d3 = Object.assign({}, d3Scale, d3Zoom);
+const d3 = Object.assign({}, d3Scale, d3Zoom, d3Array);
 
 const KlineChart = (element, options) => {
+  let MARGIN = {
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 16
+  };
+
   let { data } = options;
   let { width, height } = element.getBoundingClientRect();
 
@@ -24,7 +32,7 @@ const KlineChart = (element, options) => {
 
   let cs = new CandleStick(CandleStickPainter, context);
   let TOTAL = data.length;
-  const MIN_COUNT = 30;
+  const MIN_COUNT = 61;
   const MAX_COUNT = 100;
 
   let MAX_SCALE = TOTAL / MIN_COUNT;
@@ -40,25 +48,25 @@ const KlineChart = (element, options) => {
 
   let indexScale = d3
     .scaleLinear()
-    .domain([0, TOTAL])
+    .domain([0, TOTAL - 1])
     .range([0, width]);
 
-  let currentScale = transform.rescaleX(indexScale);
-  let [startIndex, endIndex] = currentScale.domain();
+  let currentIndexScale = transform.rescaleX(indexScale);
+  let [startIndex, endIndex] = currentIndexScale.domain();
 
-  console.log(startIndex, endIndex);
+  startIndex = parseInt(startIndex);
 
   const mainBound = {
     top: 0,
     left: 0,
     width: width,
-    height: height
+    height: height - MARGIN.bottom
   };
 
   let priceHeightScale = d3.scaleLinear().range([mainBound.height, 0]);
 
   const computePriceHeightScale = () => {
-    let part = data.slice(startIndex, endIndex);
+    let part = data.slice(startIndex, endIndex + 1);
     let min = Math.min(
       ...part.map(v => {
         return Math.min(v.fClose, v.fLow, v.fOpen, v.fHigh);
@@ -77,26 +85,70 @@ const KlineChart = (element, options) => {
   // 价格轴
   const renderLeftAxis = () => {
     let priceDomain = priceHeightScale.domain();
-    for (let i = 0; i < priceDomain.length; i++) {
-      let x = 0;
-      let y = priceHeightScale.range()[i];
-      let text = priceDomain[i].toFixed(2);
-      if (i == 0) {
-        context.textBaseline = 'bottom';
-      } else if (i == 1) {
+    // for (let i = 0; i < priceDomain.length; i++) {
+    //   let x = 0;
+    //   let y = priceHeightScale.range()[i];
+    //   let text = priceDomain[i].toFixed(2);
+    //   if (i == 0) {
+    //     context.textBaseline = 'bottom';
+    //   } else if (i == 1) {
+    //     context.textBaseline = 'top';
+    //   }
+    //   context.textAlign = 'left';
+    //   context.font = '12px Arial';
+    //   context.fillText(text, x, y);
+    // }
+
+    // let quant = d3.quantile(priceDomain);
+    console.log(priceDomain);
+    const TICK_COUNT = 4;
+    context.font = '12px Arial';
+    for (let i = 0; i <= TICK_COUNT; i++) {
+      let x1 = 0;
+      let val = d3.quantile(priceDomain, i / 4);
+      let y1 = parseInt(priceHeightScale(val)) + 0.5;
+      let y2 = y1;
+      let x2 = width;
+
+      context.strokeStyle = '#E7E7E7';
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+      context.closePath();
+
+      if (i == TICK_COUNT) {
         context.textBaseline = 'top';
+      } else {
+        context.textBaseline = 'bottom';
       }
-      context.textAlign = 'left';
-      context.font = '12px Arial';
-      context.fillText(text, x, y);
+
+      context.fillText(val.toFixed(2), x1, y1);
     }
+  };
+
+  // 时间轴
+  const renderBottomAxis = () => {
+    let a = data[startIndex];
+    let b = data[endIndex];
+
+    let w = context.measureText(b.iDate).width;
+    context.save();
+    context.font = '12px Arial';
+    context.textBaseline = 'top';
+    context.textAlign = 'left';
+    context.translate(0, height - MARGIN.bottom + 2);
+    context.fillStyle = 'rgba(17,17,17,0.60)';
+    context.fillText(a.iDate, 0, 0);
+    context.fillText(b.iDate, width - w, 0);
+    context.restore();
   };
 
   const scale = d3
     .scaleBand()
     .range([0, mainBound.width])
-    .paddingInner(0.4)
-    .paddingOuter(0);
+    .paddingInner(0.12);
+  // .paddingOuter(1);
 
   const renderSticks = () => {
     // console.log('render fired');
@@ -109,23 +161,23 @@ const KlineChart = (element, options) => {
     // renderVerGrids(mainBound.width, mainBound.height);
     // 价格轴
     renderLeftAxis();
-
-    let part = data.slice(startIndex, endIndex);
+    // 时间轴
+    renderBottomAxis();
+    console.log('endIndex + 1:', endIndex + 1);
+    let part = data.slice(startIndex, endIndex + 1);
 
     scale.domain(part.map((value, index) => index));
 
-    const rectWidth = parseInt(scale.bandwidth());
+    let rectWidth = parseInt(scale.bandwidth());
     for (let i = 0; i < part.length; i++) {
       context.save();
       let { fOpen, fClose, fLow, fHigh } = part[i];
-      let color, fill;
+      let color;
 
       if (fOpen > fClose) {
         color = GREEN;
-        fill = true;
       } else {
         color = RED;
-        fill = false;
       }
 
       cs.update({
@@ -139,11 +191,8 @@ const KlineChart = (element, options) => {
       context.strokeStyle = color;
 
       let x = parseInt(scale(i));
-
       let y1 = priceHeightScale(fHigh);
       let y2 = priceHeightScale(fLow);
-
-      // drawLine(x1, y1, x2, y2);
 
       // 蜡烛
       let y = priceHeightScale(Math.max(fOpen, fClose));
@@ -159,6 +208,7 @@ const KlineChart = (element, options) => {
         height: height,
         color: color
       });
+
       cs.paint();
 
       // drawRect(x, y, width, height, fill);
@@ -174,12 +224,11 @@ const KlineChart = (element, options) => {
     );
     mc.add(new Hammer.Pinch({ threshold: 0, pointers: 0 }));
 
-    mc.get('pinch').set({ enable: true });
+    // mc.get('pinch').set({ enable: true });
 
     let prevTransform = transform;
 
     mc.on('panstart', function(ev) {
-      console.log('panstart fired, mc.disable:', mc.disable);
       if (mc.disable) {
         return;
       }
@@ -187,7 +236,6 @@ const KlineChart = (element, options) => {
     });
 
     mc.on('pan', function(ev) {
-      console.log('paning fired');
       if (mc.disable) {
         return;
       }
@@ -205,7 +253,7 @@ const KlineChart = (element, options) => {
         transform.x = -(width * transform.k - width);
       }
 
-      let currentIndexScale = transform.rescaleX(indexScale);
+      currentIndexScale = transform.rescaleX(indexScale);
       let domain = currentIndexScale.domain();
       let start = Math.round(domain[0]);
       let end = Math.round(domain[1]);
@@ -217,56 +265,75 @@ const KlineChart = (element, options) => {
         startIndex = start;
         endIndex = end;
         renderSticks();
+        onRangeChange();
       }
     });
 
-    // let lastScale = 1;
-    // mc.on('pinchstart', function(e) {
-    //   lastScale = 1;
-    // });
+    /*
+    let lastScale = 1;
+    let h1 = document.getElementById('tit');
+    
+    mc.on('pinchstart', function(e) {
+      mc.get('pan').set({ enable: false });
+      lastScale = 1;
+    });
 
-    // let h1 = document.getElementById('tit');
+    mc.on('pinchstart', function(e) {
+      h1.innerHTML = 'pinchstart';
+    });
 
-    // mc.on('pinch', function(e) {
-    //   let loc = windowToCanvas(canvas, e.center.x, e.center.y);
-    //   h1.innerHTML = e.scale;
-    //   let eScale = e.scale > lastScale ? 1.05 : 1 / 1.05;
-    //   let plusScale = eScale - 1;
+    mc.on('pinch', function(e) {
+      let loc = windowToCanvas(canvas, e.center.x, e.center.y);
+      let eScale = e.scale > lastScale ? 1.01 : 1 / 1.01;
+      let plusScale = eScale - 1;
 
-    //   let nextScale = transform.k * eScale;
-    //   if (nextScale > MAX_SCALE) {
-    //     nextScale = MAX_SCALE;
-    //   } else if (nextScale < MIN_SCALE) {
-    //     nextScale = MIN_SCALE;
-    //   } else {
-    //     let tx = (loc.x - transform.x) * plusScale;
-    //     transform.x += -tx;
-    //   }
+      let nextScale = transform.k * eScale;
 
-    //   transform.k = nextScale;
+      if (nextScale > MAX_SCALE) {
+        nextScale = MAX_SCALE;
+      } else if (nextScale < MIN_SCALE) {
+        nextScale = MIN_SCALE;
+      } else {
+        let tx = (loc.x - transform.x) * plusScale;
+        transform.x += -tx;
+      }
 
-    //   let currentIndexScale = transform.rescaleX(indexScale);
-    //   let domain = currentIndexScale.domain();
-    //   let start = parseInt(domain[0]);
-    //   let end = parseInt(domain[1]);
+      // h1.innerHTML = nextScale;
 
-    //   if (start < 0) start = 0;
-    //   if (end > data.length - 1) end = data.length - 1;
+      transform.k = nextScale;
 
-    //   if (startIndex != start || endIndex != end) {
-    //     startIndex = start;
-    //     endIndex = end;
-    //     renderSticks();
-    //   }
+      let currentIndexScale = transform.rescaleX(indexScale);
+      let domain = currentIndexScale.domain();
+      let start = parseInt(domain[0]);
+      let end = parseInt(domain[1]);
 
-    //   // prevTransform = transform;
+      if (start < 0) {
+        end += 0 - start;
+        start = 0;
+      }
 
-    //   lastScale = e.scale;
-    // });
+      if (end > data.length - 1) {
+        start += end - data.length + 1;
+        end = data.length - 1;
+      }
 
-    // mc.on('pinchend', function(e) {
-    //   h1.innerHTML = transform;
-    // });
+      if (startIndex != start || endIndex != end) {
+        startIndex = start;
+        endIndex = end;
+        renderSticks();
+      }
+
+      // prevTransform = transform;
+
+      lastScale = e.scale;
+    });
+
+    mc.on('pinchend', function(e) {
+      h1.innerHTML = 'pinchend';
+      setTimeout(function() {
+        mc.get('pan').set({ enable: true });
+      }, 100);
+    });
 
     // 测试用
     let mouse = {};
@@ -328,11 +395,27 @@ const KlineChart = (element, options) => {
       mouse.x = e.touches[0].pageX;
       mouse.y = e.touches[0].pageY;
     });
+    */
 
     return mc;
   };
 
+  var range = [];
+
+  function onRangeChange() {
+    var start = Math.round(currentIndexScale.invert(range[0]));
+    var end = Math.round(currentIndexScale.invert(range[1]));
+
+    options.onRangeChange(start, end);
+  }
+
   return {
+    getRange() {
+      return range;
+    },
+    getStep() {
+      return scale.step();
+    },
     render() {
       element.appendChild(canvas);
 
@@ -342,39 +425,48 @@ const KlineChart = (element, options) => {
       // 绑定缩放事件
       let mc = initZoomHammer();
 
-      let rs = new RangeSelector({
+      let rs = new RangeSelectorDOM({
         container: element,
         width: width,
         height: height,
+        margin: MARGIN,
         scale: scale,
         onReady: function(t, range) {
-          $('.rangedisplay').css({
-            left: range[0],
-            width: range[1] - range[0]
-          });
-
-          $('.rangedisplay .txt').html(`${count}周期`);
+          // $('.rangedisplay').css({
+          //   left: range[0],
+          //   width: range[1] - range[0]
+          // });
+          // $('.rangedisplay .txt').html(`${count}周期`);
+          // options.onRangeInit(count);
         },
         onSelect: function() {
           mc.disable = true;
         },
-        onChange: function(t, range) {
-          let width = range[1] - range[0];
-          let step = scale.step();
-          let count = Math.round(width / step);
+        onChange: function(t, newRange) {
+          // $('.rangedisplay').css({
+          //   left: range[0],
+          //   width: range[1] - range[0]
+          // });
 
-          $('.rangedisplay').css({
-            left: range[0],
-            width: range[1] - range[0]
-          });
+          // $('.rangedisplay .txt').html(`${count}周期`);
 
-          $('.rangedisplay .txt').html(`${count}周期`);
+          // console.log(range);
+          range = newRange;
+          // let step = scale.step();
+          // options.onRangeChange(range, step);
+          // console.log(
+          //   'range:',
+          //   currentIndexScale.invert(range[0]),
+          //   currentIndexScale.invert(range[1])
+          // );
+
+          onRangeChange();
         },
         onSelectEnd: function() {
-          setTimeout(() => (mc.disable = false), 0);
+          setTimeout(() => (mc.disable = false), 100);
         }
       });
-      rs.render();
+      // rs.render();
     },
     destroy: () => {
       d3.select(element).on('.zoom', null);

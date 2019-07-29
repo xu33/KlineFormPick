@@ -113,7 +113,7 @@ class RangeSelecter {
     }
     var step = this.scale.step();
     this.MIN_WIDTH = step * 5;
-    this.MAX_WIDTH = step * 20;
+    this.MAX_WIDTH = step * 60;
 
     var touch = e.touches[0];
     var loc = windowToCanvas(canvas, touch.pageX, touch.pageY);
@@ -296,7 +296,6 @@ class RangeSelecter {
   }
 
   render() {
-    console.log('render fired');
     this.context.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     this.renderRect();
     this.renderPickers();

@@ -2,7 +2,8 @@ import KlineChart from './KlineChart';
 import data from './data.js';
 // console.log(data.length);
 let chart = KlineChart(document.getElementById('container'), {
-  data: data
+  data: data,
+  onRangeChange() {}
 });
 chart.render();
 // var canvas = document.querySelector('canvas');

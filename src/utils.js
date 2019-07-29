@@ -6,6 +6,14 @@ function windowToCanvas(canvas, x, y) {
   };
 }
 
+function windowToElement(element, x, y) {
+  var bbox = element.getBoundingClientRect();
+  return {
+    x: x - bbox.left,
+    y: y - bbox.top
+  };
+}
+
 function highDPIConvert(canvas, width, height) {
   let devicePixelRatio = window.devicePixelRatio;
   let scaledWidth = width * devicePixelRatio;
@@ -19,4 +27,4 @@ function highDPIConvert(canvas, width, height) {
   return context;
 }
 
-export { windowToCanvas, highDPIConvert };
+export { windowToCanvas, windowToElement, highDPIConvert };

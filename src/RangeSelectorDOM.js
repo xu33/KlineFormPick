@@ -14,7 +14,7 @@ class RangeSelectorDOM {
     this.scale = scale;
     let step = this.scale.step();
 
-    this.x1 = width - step * 5;
+    this.x1 = width - step * 10;
     this.x2 = width;
     this.rangeWidth = this.x2 - this.x1;
 
@@ -25,8 +25,12 @@ class RangeSelectorDOM {
 
     this.step = step;
 
-    this.leftHandle = $('<div></div>').addClass('left_handle');
-    this.rightHandle = $('<div></div>').addClass('right_handle');
+    this.leftHandle = $('<div><div class="circle"></div></div>').addClass(
+      'left_handle'
+    );
+    this.rightHandle = $('<div><div class="circle"></div></div>').addClass(
+      'right_handle'
+    );
     this.element.append(this.leftHandle);
     this.element.append(this.rightHandle);
 
@@ -48,7 +52,7 @@ class RangeSelectorDOM {
     this.touchstart = loc;
     this.type = type;
 
-    this.MIN_WIDTH = step * 5;
+    this.MIN_WIDTH = step * 10;
     this.MAX_WIDTH = step * 60;
 
     this.onSelect();
@@ -76,7 +80,6 @@ class RangeSelectorDOM {
     this.touchstart = loc;
 
     var count = stepCount > 0 ? Math.floor(stepCount) : Math.ceil(stepCount);
-    console.log('count:', count);
     var deltaX = count * step;
 
     if (type === 'left') {
@@ -154,7 +157,6 @@ class RangeSelectorDOM {
   };
 
   handleTouchEnd = e => {
-    console.log('touchend fired');
     this.touchstart = null;
     document.removeEventListener('touchmove', this.handleTouchMove);
     document.removeEventListener('touchend', this.handleTouchEnd);
@@ -163,11 +165,10 @@ class RangeSelectorDOM {
   };
 
   bindEvents() {
-    this.leftHandle.on('touchstart', this.handleTouchStart.bind(this, 'left'));
-    this.rightHandle.on(
-      'touchstart',
-      this.handleTouchStart.bind(this, 'right')
-    );
+    const handleTouchStartLeft = this.handleTouchStart.bind(this, 'left');
+    const handleTouchStartRight = this.handleTouchStart.bind(this, 'right');
+    this.leftHandle.on('touchstart', handleTouchStartLeft);
+    this.rightHandle.on('touchstart', handleTouchStartRight);
   }
 }
 

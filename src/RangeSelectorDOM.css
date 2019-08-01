@@ -11,21 +11,29 @@
 .range_selector_dom .left_handle,
 .range_selector_dom .right_handle {
   width: 20px;
+  top: 0;
+  bottom: 0;
+  position: absolute;
+}
+
+.range_selector_dom .left_handle {
+  /* top: 40%; */
+  left: -10px;
+}
+
+.range_selector_dom .right_handle {
+  /* top: 40%; */
+  right: -10px;
+}
+
+.range_selector_dom .circle {
+  width: 20px;
   height: 20px;
   border: 4px solid #fff;
+  top: 40%;
   border-radius: 50%;
   background: #fe841d;
   position: absolute;
   box-shadow: 0 2px 4px 0 rgba(17, 17, 17, 0.3);
   box-sizing: border-box;
-}
-
-.range_selector_dom .left_handle {
-  top: 40%;
-  left: -10px;
-}
-
-.range_selector_dom .right_handle {
-  top: 40%;
-  right: -10px;
 }

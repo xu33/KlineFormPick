@@ -7,12 +7,26 @@ import { highDPIConvert } from './utils';
 // import RangeSelector from './RangeSelecter';
 import RangeSelectorDOM from './RangeSelectorDOM';
 import CandleStick, { CandleStickPainter } from './CandleStick';
+import AverageLine from './AverageLine';
 
 const RED = '#F54646';
 const GREEN = '#27B666';
 const EQUAL = '#999999';
 const GRID_COLOR = '#eee';
 const BLUE = '#07d';
+function computeMa(arr, key, num) {
+  for (var i = num - 1; i < arr.length; i++) {
+    var item = arr[i];
+    var sum = item[key];
+    for (var j = i - (num - 1); j < i; j++) {
+      sum += arr[j][key];
+    }
+
+    arr[i][`ma` + num] = sum / num;
+  }
+
+  return arr;
+}
 
 const d3 = Object.assign({}, d3Scale, d3Zoom, d3Array);
 
@@ -25,14 +39,21 @@ const KlineChart = (element, options) => {
   };
 
   let { data } = options;
+  computeMa(data, 'fClose', 5);
+  computeMa(data, 'fClose', 10);
+  computeMa(data, 'fClose', 20);
+  computeMa(data, 'fClose', 30);
+
   let { width, height } = element.getBoundingClientRect();
 
   let canvas = document.createElement('canvas');
   let context = highDPIConvert(canvas, width, height);
 
+  // flyweight pattern
   let cs = new CandleStick(CandleStickPainter, context);
+  let al = new AverageLine(context);
   let TOTAL = data.length;
-  const MIN_COUNT = 61;
+  const MIN_COUNT = Math.min(60, TOTAL);
   const MAX_COUNT = 100;
 
   let MAX_SCALE = TOTAL / MIN_COUNT;
@@ -54,9 +75,9 @@ const KlineChart = (element, options) => {
   let currentIndexScale = transform.rescaleX(indexScale);
   let [startIndex, endIndex] = currentIndexScale.domain();
 
-  startIndex = parseInt(startIndex);
+  startIndex = endIndex - MIN_COUNT + 1;
 
-  const mainBound = {
+  let mainBound = {
     top: 0,
     left: 0,
     width: width,
@@ -69,13 +90,13 @@ const KlineChart = (element, options) => {
     let part = data.slice(startIndex, endIndex + 1);
     let min = Math.min(
       ...part.map(v => {
-        return Math.min(v.fClose, v.fLow, v.fOpen, v.fHigh);
+        return d3.min([v.fLow, v.ma5, v.ma10, v.ma20, v.ma30]);
       })
     );
 
     let max = Math.max(
       ...part.map(v => {
-        return Math.max(v.fClose, v.fLow, v.fOpen, v.fHigh);
+        return d3.max([v.fHigh, v.ma5, v.ma10, v.ma20, v.ma30]);
       })
     );
 
@@ -85,32 +106,19 @@ const KlineChart = (element, options) => {
   // 价格轴
   const renderLeftAxis = () => {
     let priceDomain = priceHeightScale.domain();
-    // for (let i = 0; i < priceDomain.length; i++) {
-    //   let x = 0;
-    //   let y = priceHeightScale.range()[i];
-    //   let text = priceDomain[i].toFixed(2);
-    //   if (i == 0) {
-    //     context.textBaseline = 'bottom';
-    //   } else if (i == 1) {
-    //     context.textBaseline = 'top';
-    //   }
-    //   context.textAlign = 'left';
-    //   context.font = '12px Arial';
-    //   context.fillText(text, x, y);
-    // }
-
-    // let quant = d3.quantile(priceDomain);
-    console.log(priceDomain);
+    let range = priceHeightScale.range();
     const TICK_COUNT = 4;
+    context.save();
     context.font = '12px Arial';
+    // 辅助线颜色
+    context.strokeStyle = '#E7E7E7';
+
     for (let i = 0; i <= TICK_COUNT; i++) {
       let x1 = 0;
-      let val = d3.quantile(priceDomain, i / 4);
-      let y1 = parseInt(priceHeightScale(val)) + 0.5;
+      let y1 = d3.quantile(range, i / 4) + 0.5; //parseInt(priceHeightScale(val)) + 0.5;
       let y2 = y1;
       let x2 = width;
 
-      context.strokeStyle = '#E7E7E7';
       context.beginPath();
       context.moveTo(x1, y1);
       context.lineTo(x2, y2);
@@ -123,24 +131,31 @@ const KlineChart = (element, options) => {
         context.textBaseline = 'bottom';
       }
 
+      let val = d3.quantile(priceDomain, i / 4);
+      // 字体颜色
+      context.fillStyle = '#333333';
       context.fillText(val.toFixed(2), x1, y1);
     }
+
+    context.restore();
   };
 
   // 时间轴
   const renderBottomAxis = () => {
     let a = data[startIndex];
     let b = data[endIndex];
+    let PADDING = 2;
 
-    let w = context.measureText(b.iDate).width;
     context.save();
     context.font = '12px Arial';
     context.textBaseline = 'top';
-    context.textAlign = 'left';
-    context.translate(0, height - MARGIN.bottom + 2);
+
+    context.translate(0, height - MARGIN.bottom + PADDING);
     context.fillStyle = 'rgba(17,17,17,0.60)';
+    context.textAlign = 'start';
     context.fillText(a.iDate, 0, 0);
-    context.fillText(b.iDate, width - w, 0);
+    context.textAlign = 'end';
+    context.fillText(b.iDate, width, 0);
     context.restore();
   };
 
@@ -156,19 +171,17 @@ const KlineChart = (element, options) => {
 
     // 根据数据范围新计算比例尺
     computePriceHeightScale();
-    // 辅助线
-    // renderHozGrids(mainBound.width, mainBound.height);
-    // renderVerGrids(mainBound.width, mainBound.height);
     // 价格轴
     renderLeftAxis();
     // 时间轴
     renderBottomAxis();
-    console.log('endIndex + 1:', endIndex + 1);
+
     let part = data.slice(startIndex, endIndex + 1);
 
+    // 设置bandscale的定义域
     scale.domain(part.map((value, index) => index));
-
     let rectWidth = parseInt(scale.bandwidth());
+    // 绘制蜡烛线
     for (let i = 0; i < part.length; i++) {
       context.save();
       let { fOpen, fClose, fLow, fHigh } = part[i];
@@ -211,12 +224,29 @@ const KlineChart = (element, options) => {
 
       cs.paint();
 
-      // drawRect(x, y, width, height, fill);
-
       context.restore();
     }
-  };
 
+    // 绘制均线
+    let keys = ['ma5', 'ma10', 'ma20', 'ma30'];
+    let colors = ['#29D8FF', '#3691E1', '#E051B6', '#EF7F21'];
+    keys.forEach((k, i) => {
+      let points = part
+        .map((o, i) => {
+          return {
+            x: scale(i),
+            y: k in o ? priceHeightScale(o[k]) : null
+          };
+        })
+        .filter(o => {
+          return Boolean(o.y);
+        });
+
+      al.update({ points: points, color: colors[i] });
+      al.paint();
+    });
+  };
+  var range = [];
   const initZoomHammer = () => {
     let mc = new Hammer.Manager(element, {});
     mc.add(
@@ -255,11 +285,12 @@ const KlineChart = (element, options) => {
 
       currentIndexScale = transform.rescaleX(indexScale);
       let domain = currentIndexScale.domain();
-      let start = Math.round(domain[0]);
-      let end = Math.round(domain[1]);
 
+      // let start = Math.round(domain[0]);
+      let end = Math.round(domain[1]);
+      let start = end - MIN_COUNT + 1;
       if (start < 0) start = 0;
-      if (end > data.length) end = data.length;
+      if (end > TOTAL) end = TOTAL;
 
       if (startIndex != start || endIndex != end) {
         startIndex = start;
@@ -400,11 +431,9 @@ const KlineChart = (element, options) => {
     return mc;
   };
 
-  var range = [];
-
   function onRangeChange() {
-    var start = Math.round(currentIndexScale.invert(range[0]));
-    var end = Math.round(currentIndexScale.invert(range[1]));
+    var end = Math.ceil(currentIndexScale.invert(range[1]));
+    var start = end - Math.round((range[1] - range[0]) / scale.step()) + 1;
 
     options.onRangeChange(start, end);
   }
@@ -431,42 +460,23 @@ const KlineChart = (element, options) => {
         height: height,
         margin: MARGIN,
         scale: scale,
-        onReady: function(t, range) {
-          // $('.rangedisplay').css({
-          //   left: range[0],
-          //   width: range[1] - range[0]
-          // });
-          // $('.rangedisplay .txt').html(`${count}周期`);
-          // options.onRangeInit(count);
-        },
         onSelect: function() {
           mc.disable = true;
         },
         onChange: function(t, newRange) {
-          // $('.rangedisplay').css({
-          //   left: range[0],
-          //   width: range[1] - range[0]
-          // });
-
-          // $('.rangedisplay .txt').html(`${count}周期`);
-
-          // console.log(range);
           range = newRange;
-          // let step = scale.step();
-          // options.onRangeChange(range, step);
-          // console.log(
-          //   'range:',
-          //   currentIndexScale.invert(range[0]),
-          //   currentIndexScale.invert(range[1])
-          // );
 
           onRangeChange();
         },
         onSelectEnd: function() {
-          setTimeout(() => (mc.disable = false), 100);
+          setTimeout(() => {
+            mc.disable = false;
+          }, 100);
         }
       });
-      // rs.render();
+
+      this.mc = mc;
+      this.rs = rs;
     },
     destroy: () => {
       d3.select(element).on('.zoom', null);

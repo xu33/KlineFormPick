@@ -146,9 +146,9 @@ function KlineChart(element, options) {
     context.translate(0, height - MARGIN.bottom + PADDING);
     context.fillStyle = 'rgba(17,17,17,0.60)';
     context.textAlign = 'start';
-    context.fillText(a.sttDateTime.iDate, 0, 0);
+    context.fillText(a.iDate, 0, 0);
     context.textAlign = 'end';
-    context.fillText(b.sttDateTime.iDate, width, 0);
+    context.fillText(b.iDate, width, 0);
     context.restore();
   }
 

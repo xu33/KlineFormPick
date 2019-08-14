@@ -1,3 +1,6 @@
+* {
+  box-sizing: border-box;
+}
 .range_selector_dom {
   background: rgba(254, 132, 29, 0.2);
   border-left: 1px solid #fe841d;

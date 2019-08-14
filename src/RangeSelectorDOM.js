@@ -3,6 +3,7 @@ import { windowToElement } from './utils';
 import './RangeSelectorDOM.css';
 const STROKE_COLOR = '#FE841D';
 const FILL_COLOR = 'rgba(254,132,29,0.20)';
+const DEFAULT_STICK_COUNT = 20;
 
 class RangeSelectorDOM {
   constructor({ container, width, scale, onSelect, onSelectEnd, onChange }) {
@@ -14,7 +15,7 @@ class RangeSelectorDOM {
     this.scale = scale;
     let step = this.scale.step();
 
-    this.x1 = width - step * 10;
+    this.x1 = width - step * DEFAULT_STICK_COUNT;
     this.x2 = width;
     this.rangeWidth = this.x2 - this.x1;
 
@@ -48,7 +49,7 @@ class RangeSelectorDOM {
   handleTouchStart(type, e) {
     var touch = e.touches[0];
     var loc = windowToElement(this.container, touch.pageX, touch.pageY);
-    var step = this.step;
+    var step = this.scale.step();
     this.touchstart = loc;
     this.type = type;
 
@@ -156,6 +157,15 @@ class RangeSelectorDOM {
     this.onChange(this, [this.x1, this.x2]);
   };
 
+  manualUpdate({ x1, x2 }) {
+    let rangeWidth = x2 - x1;
+    this.x1 = x1;
+    this.x2 = x2;
+
+    this.element.css({ left: x1, width: rangeWidth });
+    // this.onChange(this, [this.x1, this.x2]);
+  }
+
   handleTouchEnd = e => {
     this.touchstart = null;
     document.removeEventListener('touchmove', this.handleTouchMove);
@@ -169,6 +179,11 @@ class RangeSelectorDOM {
     const handleTouchStartRight = this.handleTouchStart.bind(this, 'right');
     this.leftHandle.on('touchstart', handleTouchStartLeft);
     this.rightHandle.on('touchstart', handleTouchStartRight);
+  }
+
+  destroy() {
+    this.leftHandle.off('touchstart');
+    this.rightHandle.off('touchstart');
   }
 }
 

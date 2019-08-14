@@ -43,7 +43,7 @@ class CircleSprite {
   }
 
   updateLast() {
-    console.log(this.x, this.lastX);
+    // console.log(this.x, this.lastX);
     this.lastX = this.x;
   }
 
@@ -74,6 +74,7 @@ class RangeSelecter {
     container,
     width,
     height,
+    margin,
     scale,
     onSelect,
     onSelectEnd,
@@ -84,9 +85,9 @@ class RangeSelecter {
     // this.context = highDPIConvert(this.canvas, width, height);
     this.context = this.canvas.getContext('2d');
     this.canvas.width = width;
-    this.canvas.height = height;
+    this.canvas.height = height - margin.bottom;
     this.canvasWidth = width;
-    this.canvasHeight = height;
+    this.canvasHeight = height - margin.bottom;
 
     this.scale = scale;
     var step = this.scale.step();
@@ -268,7 +269,6 @@ class RangeSelecter {
 
   renderPickers() {
     var context = this.context;
-    console.log(this.circles.length);
     this.circles.forEach(function(c) {
       c.render(context);
     });

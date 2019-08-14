@@ -1,6 +1,30 @@
+// Painter
+const CandleStickPainter = {
+  paint: function(sprite, context) {
+    let x = sprite.x + sprite.width / 2;
+    x = parseInt(x) + 0.5;
+
+    // 影线
+    context.beginPath();
+    context.moveTo(x, sprite.yHigh);
+    context.lineTo(x, sprite.yLow);
+    context.strokeStyle = sprite.color;
+    context.stroke();
+    context.closePath();
+
+    // 实体
+    if (sprite.width < 4) {
+      return;
+    }
+    context.fillStyle = sprite.color;
+    context.rect(sprite.x, sprite.y, sprite.width, sprite.height);
+    context.fill();
+  }
+};
+
 // Sprite
 class CandleStick {
-  constructor(painter, context) {
+  constructor(context) {
     this.context = context;
     this.x = 0;
     this.y = 0;
@@ -9,7 +33,7 @@ class CandleStick {
     this.width = 0;
     this.height = 0;
     this.color = '';
-    this.painter = painter;
+    this.painter = CandleStickPainter;
   }
 
   paint() {
@@ -26,26 +50,5 @@ class CandleStick {
     this.color = color;
   }
 }
-
-// Painter
-export const CandleStickPainter = {
-  paint: function(sprite, context) {
-    let x = sprite.x + sprite.width / 2;
-    x = parseInt(x) + 0.5;
-
-    // 影线
-    context.beginPath();
-    context.moveTo(x, sprite.yHigh);
-    context.lineTo(x, sprite.yLow);
-    context.strokeStyle = sprite.color;
-    context.stroke();
-    context.closePath();
-
-    // 实体
-    context.fillStyle = sprite.color;
-    context.rect(sprite.x, sprite.y, sprite.width, sprite.height);
-    context.fill();
-  }
-};
 
 export default CandleStick;

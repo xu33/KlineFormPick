@@ -1,6 +1,8 @@
 import KlineChart from './KlineChart';
 import data from './data.js';
-
+const a = 1;
+const b = x => 3;
+b();
 let chart = KlineChart(document.getElementById('container'), {
   data: data,
   enablePick: true,

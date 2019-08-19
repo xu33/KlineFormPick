@@ -77,10 +77,12 @@ function KlineChart(element, options) {
     startIndex = 0;
   }
 
+  let currentSection = data.slice(startIndex, endIndex + 1);
+
   let priceHeightScale = d3.scaleLinear().range([mainBound.height, 0]);
 
   function computePriceHeightScale() {
-    let part = data.slice(startIndex, endIndex + 1);
+    let part = currentSection;
     let min = Math.min(
       ...part.map(v => {
         return d3.min([v.fLow, v.ma5, v.ma10, v.ma20, v.ma30]);
@@ -146,10 +148,38 @@ function KlineChart(element, options) {
     context.translate(0, height - MARGIN.bottom + PADDING);
     context.fillStyle = 'rgba(17,17,17,0.60)';
     context.textAlign = 'start';
-    context.fillText(a.iDate, 0, 0);
+    context.fillText(a.sttDateTime.iDate, 0, 0);
     context.textAlign = 'end';
-    context.fillText(b.iDate, width, 0);
+    context.fillText(b.sttDateTime.iDate, width, 0);
     context.restore();
+  }
+
+  // 使用rescaleX重新计算当前开始和结束的索引
+  function calculateCurrentStartEnd() {
+    currentIndexScale = transform.rescaleX(indexScale);
+
+    let domain = currentIndexScale.domain();
+    let between = Math.ceil(domain[1] - domain[0]);
+    let end = Math.ceil(domain[1]);
+    let start = end - between + 1;
+
+    if (start < 0) {
+      start = 0;
+      end = start + between - 1;
+    }
+
+    if (end >= TOTAL) {
+      end = TOTAL - 1;
+      start = end - between + 1;
+    }
+
+    if (startIndex != start || endIndex != end) {
+      startIndex = start;
+      endIndex = end;
+      return true;
+    }
+
+    return false;
   }
 
   const scale = d3
@@ -160,6 +190,7 @@ function KlineChart(element, options) {
 
   let currentPart = null;
   function renderSticks() {
+    let part = currentSection;
     // console.log('render fired');
     context.clearRect(0, 0, width, height);
 
@@ -170,7 +201,6 @@ function KlineChart(element, options) {
     // 时间轴
     renderBottomAxis();
 
-    let part = data.slice(startIndex, endIndex + 1);
     currentPart = part;
 
     // 设置bandscale的定义域
@@ -280,19 +310,9 @@ function KlineChart(element, options) {
         transform.x = -(width * transform.k - width);
       }
 
-      currentIndexScale = transform.rescaleX(indexScale);
-
-      let domain = currentIndexScale.domain();
-      let between = Math.ceil(domain[1] - domain[0]);
-      let end = Math.ceil(domain[1]);
-      let start = end - between + 1;
-
-      if (start < 0) start = 0;
-      if (end > TOTAL) end = TOTAL;
-
-      if (startIndex != start || endIndex != end) {
-        startIndex = start;
-        endIndex = end;
+      const isCurrentChanged = calculateCurrentStartEnd();
+      if (isCurrentChanged) {
+        updateCurrentSection(startIndex, endIndex);
         renderSticks();
         onRangeChange();
       }
@@ -308,6 +328,10 @@ function KlineChart(element, options) {
     function handlePinchStart(e) {
       mc.get('pan').set({ enable: false });
       lastScale = 1;
+    }
+
+    function updateCurrentSection(startIndex, endIndex) {
+      currentSection = data.slice(startIndex, endIndex + 1);
     }
 
     function handlePinch(e) {
@@ -328,75 +352,12 @@ function KlineChart(element, options) {
       }
 
       transform.k = nextScale;
-      currentIndexScale = transform.rescaleX(indexScale);
-      let domain = currentIndexScale.domain();
 
-      let start = parseInt(domain[0]);
-      let end = parseInt(domain[1]);
-      let between = end - start + 1;
-
-      if (start < 0) {
-        start = 0;
-        end = start + between - 1;
-      }
-
-      if (end >= TOTAL) {
-        end = TOTAL - 1;
-        start = end - between + 1;
-      }
-
-      if (startIndex != start || endIndex != end) {
-        startIndex = start;
-        endIndex = end;
+      const isCurrentChanged = calculateCurrentStartEnd();
+      if (isCurrentChanged) {
+        updateCurrentSection(startIndex, endIndex);
         renderSticks();
-
-        // 更新选择框
         resetRangeAfterZoom();
-      }
-
-      lastScale = e.scale;
-    }
-
-    function __handlePinch(e) {
-      let deltaX = windowToCanvas(canvas, e.center.x, e.center.y).x;
-      let eScale = e.scale > lastScale ? 1.01 : 1 / 1.01;
-
-      let plusScale = eScale - 1;
-
-      let nextScale = transform.k * eScale;
-
-      if (nextScale > MAX_SCALE) {
-        nextScale = MAX_SCALE;
-      } else if (nextScale < MIN_SCALE) {
-        nextScale = MIN_SCALE;
-      } else {
-        let tx = (deltaX - transform.x) * plusScale;
-        transform.x += -tx;
-      }
-
-      transform.k = nextScale;
-
-      currentIndexScale = transform.rescaleX(indexScale);
-      let domain = currentIndexScale.domain();
-
-      let start = parseInt(domain[0]);
-      let end = parseInt(domain[1]);
-
-      if (start < 0) {
-        end += 0 - start;
-        start = 0;
-      }
-
-      if (end > data.length - 1) {
-        start += end - data.length + 1;
-        end = data.length - 1;
-      }
-
-      if (startIndex != start || endIndex != end) {
-        startIndex = start;
-        endIndex = end;
-        renderSticks();
-        // onRangeChange();
       }
 
       lastScale = e.scale;
@@ -491,61 +452,61 @@ function KlineChart(element, options) {
       selectedRange[0] = x1;
       selectedRange[1] = x2;
 
+      // 更新选择器的左右端
       rs.manualUpdate({ x1: selectedRange[0], x2: selectedRange[1] });
       onRangeChange();
     } catch (e) {
-      // document.querySelector('.log').innerHTML =
-      //   rangeStartIndex + ',' + rangeEndIndex;
+      console.warn(e);
     }
   }
 
   // 测试用
-  function zoomTest() {
-    let deltaX = 350;
-    let eScale = 0.9;
+  // function zoomTest() {
+  //   let deltaX = 350;
+  //   let eScale = 0.2;
 
-    let plusScale = eScale - 1;
+  //   let plusScale = eScale - 1;
 
-    let nextScale = transform.k * eScale;
-    // console.log('nextScale:', nextScale);
+  //   let nextScale = transform.k * eScale;
+  //   // console.log('nextScale:', nextScale);
 
-    if (nextScale > MAX_SCALE) {
-      nextScale = MAX_SCALE;
-    } else if (nextScale < MIN_SCALE) {
-      nextScale = MIN_SCALE;
-    } else {
-      let tx = (deltaX - transform.x) * plusScale;
-      transform.x += -tx;
-    }
+  //   if (nextScale > MAX_SCALE) {
+  //     nextScale = MAX_SCALE;
+  //   } else if (nextScale < MIN_SCALE) {
+  //     nextScale = MIN_SCALE;
+  //   } else {
+  //     let tx = (deltaX - transform.x) * plusScale;
+  //     transform.x += -tx;
+  //   }
 
-    transform.k = nextScale;
-    // console.log('nextScale:', transform.k);
+  //   transform.k = nextScale;
+  //   // console.log('nextScale:', transform.k);
 
-    currentIndexScale = transform.rescaleX(indexScale);
-    let domain = currentIndexScale.domain();
+  //   currentIndexScale = transform.rescaleX(indexScale);
+  //   let domain = currentIndexScale.domain();
 
-    let start = parseInt(domain[0]);
-    let end = parseInt(domain[1]);
-    let between = end - start + 1;
+  //   let start = parseInt(domain[0]);
+  //   let end = parseInt(domain[1]);
+  //   let between = end - start + 1;
 
-    if (start < 0) {
-      start = 0;
-      end = start + between - 1;
-    }
+  //   if (start < 0) {
+  //     start = 0;
+  //     end = start + between - 1;
+  //   }
 
-    if (end >= TOTAL) {
-      end = TOTAL - 1;
-      start = end - between + 1;
-    }
+  //   if (end >= TOTAL) {
+  //     end = TOTAL - 1;
+  //     start = end - between + 1;
+  //   }
 
-    if (startIndex != start || endIndex != end) {
-      startIndex = start;
-      endIndex = end;
-      renderSticks();
+  //   if (startIndex != start || endIndex != end) {
+  //     startIndex = start;
+  //     endIndex = end;
+  //     renderSticks();
 
-      resetRangeAfterZoom();
-    }
-  }
+  //     resetRangeAfterZoom();
+  //   }
+  // }
 
   return {
     getRange: function() {
@@ -558,11 +519,9 @@ function KlineChart(element, options) {
       element.appendChild(canvas);
 
       // 绘制
-      renderSticks();
+      renderSticks(currentSection);
 
-      if (!options.enablePick) {
-        return;
-      }
+      if (!options.enablePick) return;
 
       // 绑定缩放事件
       mc = initZoomHammer();
@@ -600,13 +559,9 @@ function KlineChart(element, options) {
       // }, 3000);
     },
     destroy: function() {
+      if (mc != null) mc.destory();
+      if (rs != null) rs.destroy();
       element.removeChild(canvas);
-      if (this.mc) {
-        this.mc.destory();
-      }
-      if (this.rs) {
-        this.rs.destroy();
-      }
     }
   };
 }

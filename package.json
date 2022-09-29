@@ -20,7 +20,7 @@
     "babel-plugin-transform-remove-strict-mode": "0.0.2",
     "clean-webpack-plugin": "^0.1.19",
     "css-loader": "^0.28.7",
-    "d3": "^5.9.2",
+    "d3": "^7.6.1",
     "es6-object-assign": "^1.1.0",
     "es6-promise": "^4.2.5",
     "file-loader": "^2.0.0",
